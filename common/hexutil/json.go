@@ -17,6 +17,7 @@
 package hexutil
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -354,14 +355,11 @@ func checkNumberText(input []byte) (raw []byte, err error) {
 	if !bytesHave0xPrefix(input) {
 		return nil, ErrMissingPrefix
 	}
-	input = input[2:]
-	if len(input) == 0 {
-		return nil, ErrEmptyNumber
+	trimInput := bytes.TrimLeft(input[2:], "0")
+	if len(trimInput) == 0 {
+		return nil, nil
 	}
-	if len(input) > 1 && input[0] == '0' {
-		return nil, ErrLeadingZero
-	}
-	return input, nil
+	return trimInput, nil
 }
 
 func wrapTypeError(err error, typ reflect.Type) error {
