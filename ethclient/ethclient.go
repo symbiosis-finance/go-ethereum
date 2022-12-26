@@ -156,9 +156,9 @@ func (ec *Client) getBlock(ctx context.Context, method string, args ...interface
 	if head.TxHash == types.EmptyTxsHash && len(body.Transactions) > 0 {
 		return nil, errors.New("server returned non-empty transaction list but block header indicates no transactions")
 	}
-	if head.TxHash != types.EmptyTxsHash && len(body.Transactions) == 0 {
-		return nil, errors.New("server returned empty transaction list but block header indicates transactions")
-	}
+	//if head.TxHash != types.EmptyTxsHash && len(body.Transactions) == 0 {
+	//	return nil, errors.New("server returned empty transaction list but block header indicates transactions")
+	//}
 	// Load uncles because they are not included in the block response.
 	var uncles []*types.Header
 	if len(body.UncleHashes) > 0 {
