@@ -483,7 +483,10 @@ func recoverPlain(sighash common.Hash, R, S, Vb *big.Int, homestead bool) (commo
 	if Vb.BitLen() > 8 {
 		return common.Address{}, ErrInvalidSig
 	}
-	V := byte(Vb.Uint64() - 27)
+	V := byte(Vb.Uint64())
+	if V > 1 {
+		V = V - 27
+	}
 	if !crypto.ValidateSignatureValues(V, R, S, homestead) {
 		return common.Address{}, ErrInvalidSig
 	}
