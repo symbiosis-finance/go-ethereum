@@ -35,7 +35,7 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-//SignatureLength indicates the byte length required to carry a signature with recovery id.
+// SignatureLength indicates the byte length required to carry a signature with recovery id.
 const SignatureLength = 64 + 1 // 64 bytes ECDSA signature + 1 byte recovery id
 
 // RecoveryIDOffset points to the byte offset within the signature that contains the recovery id.
@@ -269,6 +269,9 @@ func ValidateSignatureValues(v byte, r, s *big.Int, homestead bool) bool {
 		return false
 	}
 	// Frontier: allow s to be in full N range
+	if v > 1 {
+		v = v + 27
+	}
 	return r.Cmp(secp256k1N) < 0 && s.Cmp(secp256k1N) < 0 && (v == 0 || v == 1)
 }
 
