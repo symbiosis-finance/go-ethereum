@@ -228,11 +228,7 @@ func (tx *Transaction) UnmarshalJSON(input []byte) error {
 		}
 		itx.V = (*big.Int)(dec.V)
 		if itx.V.Sign() != 0 || itx.R.Sign() != 0 || itx.S.Sign() != 0 {
-			mayBeProtected := true
-			if byte(itx.V.Uint64()) < 27 {
-				mayBeProtected = false
-			}
-			if err := sanityCheckSignature(itx.V, itx.R, itx.S, mayBeProtected); err != nil {
+			if err := sanityCheckSignature(itx.V, itx.R, itx.S, true); err != nil {
 				return err
 			}
 		}
