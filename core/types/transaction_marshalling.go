@@ -508,6 +508,9 @@ func (tx *Transaction) UnmarshalJSON(input []byte) error {
 		}
 
 	default:
+		if dec.ChainID.ToInt().Uint64() == 324 {
+			return nil
+		}
 		return ErrTxTypeNotSupported
 	}
 
