@@ -405,7 +405,8 @@ func (tx *Transaction) UnmarshalJSON(input []byte) error {
 		}
 
 	default:
-		if dec.ChainID != nil && dec.ChainID.ToInt() != nil && (dec.ChainID.ToInt().Uint64() == 324 || dec.ChainID.ToInt().Uint64() == 42161) {
+		if dec.ChainID != nil && dec.ChainID.ToInt() != nil &&
+			(dec.ChainID.ToInt().Uint64() == 324 || dec.ChainID.ToInt().Uint64() == 42161 || dec.ChainID.ToInt().Uint64() == 42170) {
 			return nil
 		}
 		return ErrTxTypeNotSupported
