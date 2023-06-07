@@ -262,16 +262,6 @@ func (t *Transaction) UnmarshalJSON(input []byte) error {
 				return err
 			}
 		}
-
-	default:
-		if dec.ChainID != nil && dec.ChainID.ToInt() != nil &&
-			(dec.ChainID.ToInt().Uint64() == 324 ||
-				dec.ChainID.ToInt().Uint64() == 42161 ||
-				dec.ChainID.ToInt().Uint64() == 42170 ||
-				dec.ChainID.ToInt().Uint64() == 10) {
-			return nil
-		}
-		return ErrTxTypeNotSupported
 	}
 
 	// Now set the inner transaction.
