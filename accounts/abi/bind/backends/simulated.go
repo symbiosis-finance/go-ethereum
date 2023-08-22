@@ -877,6 +877,8 @@ func (fb *filterBackend) HeaderByHash(ctx context.Context, hash common.Hash) (*t
 }
 
 func (fb *filterBackend) PendingBlockAndReceipts() (*types.Block, types.Receipts) {
+	fb.backend.mu.Lock()
+	defer fb.backend.mu.Unlock()
 	return fb.backend.pendingBlock, fb.backend.pendingReceipts
 }
 
