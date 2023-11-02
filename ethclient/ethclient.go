@@ -618,6 +618,7 @@ func toCallArg(msg ethereum.CallMsg) interface{} {
 		"from": msg.From,
 		"to":   msg.To,
 	}
+	
 	if len(msg.Data) > 0 {
 		data := hexutil.Bytes(msg.Data)
 		arg["data"] = data
