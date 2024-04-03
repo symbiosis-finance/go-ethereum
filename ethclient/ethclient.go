@@ -65,6 +65,10 @@ func (ec *Client) Client() *rpc.Client {
 	return ec.c
 }
 
+func (ec *Client) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
+	return ec.c.CallContext(ctx, &result, method, args)
+}
+
 // Blockchain Access
 
 // ChainID retrieves the current chain ID for transaction replay protection.
