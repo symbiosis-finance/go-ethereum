@@ -87,8 +87,18 @@ type TxData interface {
 	setSignatureValues(chainID, v, r, s *big.Int)
 }
 
-func (tx *Transaction) From() common.Address {
-	return tx.from.Load().(sigCache).from
+func (tx *Transaction) From() (common.Address, error) {
+	msg, err := tx.AsMessage(LatestSignerForChainID(tx.ChainId()), nil)
+	if err != nil {
+		if tx.from.Load() != nil {
+			addr, ok := tx.from.Load().(sigCache)
+			if ok {
+				return addr.from, nil
+			}
+		}
+		return common.Address{}, err
+	}
+	return msg.From(), nil
 }
 
 // EncodeRLP implements rlp.Encoder
