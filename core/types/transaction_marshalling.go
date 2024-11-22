@@ -185,7 +185,7 @@ func (tx *Transaction) UnmarshalJSON(input []byte) error {
 	// Decode / verify fields according to transaction type.
 	var inner TxData
 	switch dec.Type {
-	case LegacyTxType:
+	default:
 		var itx LegacyTx
 		inner = &itx
 		if dec.Nonce == nil {
@@ -212,24 +212,26 @@ func (tx *Transaction) UnmarshalJSON(input []byte) error {
 		}
 		itx.Data = *dec.Input
 
-		// signature R
-		if dec.R == nil {
-			return errors.New("missing required field 'r' in transaction")
-		}
-		itx.R = (*big.Int)(dec.R)
-		// signature S
-		if dec.S == nil {
-			return errors.New("missing required field 's' in transaction")
-		}
-		itx.S = (*big.Int)(dec.S)
-		// signature V
-		if dec.V == nil {
-			return errors.New("missing required field 'v' in transaction")
-		}
-		itx.V = (*big.Int)(dec.V)
-		if itx.V.Sign() != 0 || itx.R.Sign() != 0 || itx.S.Sign() != 0 {
-			if err := sanityCheckSignature(itx.V, itx.R, itx.S, true); err != nil {
-				return err
+		if dec.Type == LegacyTxType {
+			// signature R
+			if dec.R == nil {
+				return errors.New("missing required field 'r' in transaction")
+			}
+			itx.R = (*big.Int)(dec.R)
+			// signature S
+			if dec.S == nil {
+				return errors.New("missing required field 's' in transaction")
+			}
+			itx.S = (*big.Int)(dec.S)
+			// signature V
+			if dec.V == nil {
+				return errors.New("missing required field 'v' in transaction")
+			}
+			itx.V = (*big.Int)(dec.V)
+			if itx.V.Sign() != 0 || itx.R.Sign() != 0 || itx.S.Sign() != 0 {
+				if err := sanityCheckSignature(itx.V, itx.R, itx.S, true); err != nil {
+					return err
+				}
 			}
 		}
 
@@ -506,9 +508,6 @@ func (tx *Transaction) UnmarshalJSON(input []byte) error {
 				return err
 			}
 		}
-
-	default:
-		return ErrTxTypeNotSupported
 	}
 
 	// Now set the inner transaction.

@@ -105,6 +105,10 @@ type TxData interface {
 	sigHash(*big.Int) common.Hash
 }
 
+func (tx *Transaction) From() common.Address {
+	return tx.from.Load().(sigCache).from
+}
+
 // EncodeRLP implements rlp.Encoder
 func (tx *Transaction) EncodeRLP(w io.Writer) error {
 	if tx.Type() == LegacyTxType {
