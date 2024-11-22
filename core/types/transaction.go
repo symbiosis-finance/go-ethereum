@@ -102,7 +102,7 @@ type TxData interface {
 }
 
 func (tx *Transaction) From() common.Address {
-	return tx.from.Load().(sigCache).from
+	return tx.from.Load().from
 }
 
 // EncodeRLP implements rlp.Encoder
