@@ -278,6 +278,9 @@ func ValidateSignatureValues(v byte, r, s *big.Int, homestead bool) bool {
 		return false
 	}
 	// Frontier: allow s to be in full N range
+	if v > 1 {
+		v = v + 27
+	}
 	return r.Cmp(secp256k1N) < 0 && s.Cmp(secp256k1N) < 0 && (v == 0 || v == 1)
 }
 
