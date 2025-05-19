@@ -105,7 +105,16 @@ type TxData interface {
 }
 
 func (tx *Transaction) From() common.Address {
-	return tx.from.Load().from
+	// Get the sender (from address)
+	from, err := Sender(LatestSignerForChainID(tx.ChainId()), tx)
+	if err != nil {
+		if tx.from.Load() != nil {
+			return tx.from.Load().from
+		}
+		return common.Address{}
+	}
+
+	return from
 }
 
 // EncodeRLP implements rlp.Encoder
