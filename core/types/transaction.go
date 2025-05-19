@@ -105,12 +105,16 @@ type TxData interface {
 }
 
 func (tx *Transaction) From() common.Address {
+	if tx.from.Load() != nil {
+		return tx.from.Load().from
+	}
+
+	if tx.ChainId() == nil || tx.ChainId().Sign() <= 0 {
+		return common.Address{}
+	}
 	// Get the sender (from address)
 	from, err := Sender(LatestSignerForChainID(tx.ChainId()), tx)
 	if err != nil {
-		if tx.from.Load() != nil {
-			return tx.from.Load().from
-		}
 		return common.Address{}
 	}
 
