@@ -33,6 +33,7 @@ import (
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/misc"
 	"github.com/ethereum/go-ethereum/consensus/misc/eip1559"
+	"github.com/ethereum/go-ethereum/consensus/misc/eip4844"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -293,24 +294,32 @@ func (c *Clique) verifyHeader(chain consensus.ChainHeaderReader, header *types.H
 	if header.GasLimit > params.MaxGasLimit {
 		return fmt.Errorf("invalid gasLimit: have %v, max %v", header.GasLimit, params.MaxGasLimit)
 	}
+	// SBX: shanghai on clique — the withdrawals root must be present iff the
+	// fork is active (always the empty-list root here; the body carries an
+	// empty withdrawals list, see FinalizeAndAssemble).
 	if chain.Config().IsShanghai(header.Number, header.Time) {
-		return errors.New("clique does not support shanghai fork")
-	}
-	// Verify the non-existence of withdrawalsHash.
-	if header.WithdrawalsHash != nil {
+		if header.WithdrawalsHash == nil {
+			return errors.New("missing withdrawalsHash on shanghai clique block")
+		}
+	} else if header.WithdrawalsHash != nil {
 		return fmt.Errorf("invalid withdrawalsHash: have %x, expected nil", header.WithdrawalsHash)
 	}
+	// SBX: cancun on clique — all three header fields must be present when
+	// active (zero blob gas on chains without blobs; a zero parent beacon
+	// root per the EIP-4788 no-beacon convention, where the system call
+	// against the empty predeploy is a no-op). Value consistency with the
+	// parent is checked in verifyCascadingFields.
 	if chain.Config().IsCancun(header.Number, header.Time) {
-		return errors.New("clique does not support cancun fork")
-	}
-	// Verify the non-existence of cancun-specific header fields
-	switch {
-	case header.ExcessBlobGas != nil:
-		return fmt.Errorf("invalid excessBlobGas: have %d, expected nil", header.ExcessBlobGas)
-	case header.BlobGasUsed != nil:
-		return fmt.Errorf("invalid blobGasUsed: have %d, expected nil", header.BlobGasUsed)
-	case header.ParentBeaconRoot != nil:
-		return fmt.Errorf("invalid parentBeaconRoot, have %#x, expected nil", header.ParentBeaconRoot)
+		switch {
+		case header.ExcessBlobGas == nil:
+			return errors.New("missing excessBlobGas on cancun clique block")
+		case header.BlobGasUsed == nil:
+			return errors.New("missing blobGasUsed on cancun clique block")
+		case header.ParentBeaconRoot == nil:
+			return errors.New("missing parentBeaconRoot on cancun clique block")
+		}
+	} else if header.ExcessBlobGas != nil || header.BlobGasUsed != nil || header.ParentBeaconRoot != nil {
+		return errors.New("unexpected cancun fields in clique header")
 	}
 	// All basic checks passed, verify cascading fields
 	return c.verifyCascadingFields(chain, header, parents)
@@ -354,6 +363,13 @@ func (c *Clique) verifyCascadingFields(chain consensus.ChainHeaderReader, header
 	} else if err := eip1559.VerifyEIP1559Header(chain.Config(), parent, header); err != nil {
 		// Verify the header's EIP-1559 attributes.
 		return err
+	}
+	// SBX: cancun on clique — blob-gas fields must be self-consistent with
+	// the parent (zero on a chain with no blob transactions).
+	if chain.Config().IsCancun(header.Number, header.Time) {
+		if err := eip4844.VerifyEIP4844Header(parent, header); err != nil {
+			return err
+		}
 	}
 	// Retrieve the snapshot needed to verify this header and cache it
 	snap, err := c.snapshot(chain, number-1, header.ParentHash, parents)
@@ -569,6 +585,13 @@ func (c *Clique) Prepare(chain consensus.ChainHeaderReader, header *types.Header
 	if header.Time < uint64(time.Now().Unix()) {
 		header.Time = uint64(time.Now().Unix())
 	}
+	// SBX: cancun on clique — the miner's worker only stamps the beacon root
+	// on the engine-API path; CLI mining passes a nil one. Zero root, per the
+	// EIP-4788 no-beacon-chain convention. ExcessBlobGas/BlobGasUsed are
+	// stamped by the worker (prepareWork) on config alone.
+	if chain.Config().IsCancun(header.Number, header.Time) {
+		header.ParentBeaconRoot = new(common.Hash)
+	}
 	return nil
 }
 
@@ -590,6 +613,13 @@ func (c *Clique) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *
 	// Assign the final state root to header.
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 
+	// SBX: shanghai on clique — carry an empty withdrawals body list (the
+	// builder stamps the empty-withdrawals root for a non-nil empty list, and
+	// block validation requires body and root to agree; the optional-tail
+	// header RLP cannot decode cancun fields after a nil withdrawals root).
+	if chain.Config().IsShanghai(header.Number, header.Time) {
+		return types.NewBlock(header, &types.Body{Transactions: body.Transactions, Withdrawals: []*types.Withdrawal{}}, receipts, trie.NewStackTrie(nil)), nil
+	}
 	// Assemble and return the final block for sealing.
 	return types.NewBlock(header, &types.Body{Transactions: body.Transactions}, receipts, trie.NewStackTrie(nil)), nil
 }
@@ -692,17 +722,17 @@ func encodeSigHeader(w io.Writer, header *types.Header) {
 	if header.BaseFee != nil {
 		enc = append(enc, header.BaseFee)
 	}
+	// SBX: shanghai/cancun on clique — hash the optional header tail in the
+	// same order the canonical header RLP encodes it. All cancun fields go
+	// together or none do (verifyHeader enforces presence when active).
 	if header.WithdrawalsHash != nil {
-		panic("unexpected withdrawal hash value in clique")
+		enc = append(enc, header.WithdrawalsHash)
 	}
-	if header.ExcessBlobGas != nil {
-		panic("unexpected excess blob gas value in clique")
-	}
-	if header.BlobGasUsed != nil {
-		panic("unexpected blob gas used value in clique")
-	}
-	if header.ParentBeaconRoot != nil {
-		panic("unexpected parent beacon root value in clique")
+	if header.BlobGasUsed != nil || header.ExcessBlobGas != nil || header.ParentBeaconRoot != nil {
+		if header.BlobGasUsed == nil || header.ExcessBlobGas == nil || header.ParentBeaconRoot == nil {
+			panic("partial cancun fields in clique header")
+		}
+		enc = append(enc, header.BlobGasUsed, header.ExcessBlobGas, header.ParentBeaconRoot)
 	}
 	if err := rlp.Encode(w, enc); err != nil {
 		panic("can't encode: " + err.Error())
