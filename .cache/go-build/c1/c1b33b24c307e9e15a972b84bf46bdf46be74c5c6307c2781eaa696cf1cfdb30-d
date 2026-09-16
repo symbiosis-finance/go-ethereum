@@ -1,0 +1,10 @@
+./arith.go
+./asm.go
+./doc.go
+./element.go
+./element_exp.go
+./element_ops_amd64.go
+./generator.go
+./vector.go
+./element_mul_amd64.s
+./element_ops_amd64.s

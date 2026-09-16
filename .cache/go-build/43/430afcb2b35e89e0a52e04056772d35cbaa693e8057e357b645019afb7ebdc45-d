@@ -1,0 +1,6 @@
+./bitset.go
+./leading_zeros_19.go
+./popcnt.go
+./popcnt_19.go
+./select.go
+./trailing_zeros_19.go

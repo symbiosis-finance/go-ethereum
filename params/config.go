@@ -1093,8 +1093,13 @@ func (c *ChainConfig) Rules(num *big.Int, isMerge bool, timestamp uint64) Rules 
 		IsEIP2929:        c.IsBerlin(num) && !isVerkle,
 		IsLondon:         c.IsLondon(num),
 		IsMerge:          isMerge,
-		IsShanghai:       isMerge && c.IsShanghai(num, timestamp),
-		IsCancun:         isMerge && c.IsCancun(num, timestamp),
+		// SBX: shanghai/cancun without the merge. The isMerge flag comes from
+		// Random != nil, which NewEVMBlockContext only sets when difficulty
+		// is zero — clique keeps difficulty 1/2 forever, so the gate can
+		// never open on PoA chains. IsMerge stays false (DIFFICULTY keeps
+		// its pre-merge meaning, blob txs keep their config-level gating).
+		IsShanghai:       c.IsShanghai(num, timestamp),
+		IsCancun:         c.IsCancun(num, timestamp),
 		IsPrague:         isMerge && c.IsPrague(num, timestamp),
 		IsOsaka:          isMerge && c.IsOsaka(num, timestamp),
 		IsVerkle:         isVerkle,
