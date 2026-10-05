@@ -190,3 +190,9 @@ func (n *Backend) AdjustTime(adjustment time.Duration) error {
 func (n *Backend) Client() Client {
 	return n.client
 }
+
+// WSEndpoint returns the URL of the node's WebSocket RPC as bound, so a
+// WSPort of 0 lets the kernel pick a free port and the caller learn it here.
+func (n *Backend) WSEndpoint() string {
+	return n.node.WSEndpoint()
+}
