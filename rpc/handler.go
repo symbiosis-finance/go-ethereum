@@ -80,7 +80,6 @@ func newHandler(connCtx context.Context, conn jsonWriter, idgen func() ID, reg *
 	h := &handler{
 		reg:                  reg,
 		idgen:                idgen,
-		conn:                 conn,
 		respWait:             make(map[string]*requestOp),
 		clientSubs:           make(map[string]*ClientSubscription),
 		rootCtx:              rootCtx,
@@ -94,6 +93,7 @@ func newHandler(connCtx context.Context, conn jsonWriter, idgen func() ID, reg *
 	if conn.remoteAddr() != "" {
 		h.log = h.log.New("conn", conn.remoteAddr())
 	}
+	h.conn = closingWriter{jsonWriter: conn, log: h.log}
 	h.unsubscribeCb = newCallback(reflect.Value{}, reflect.ValueOf(h.unsubscribe))
 	return h
 }
@@ -311,13 +311,37 @@ func (h *handler) handleNonBatchCall(cp *callProc, msg *jsonrpcMessage) {
 	}
 }
 
-// close cancels all requests except for inflightReq and waits for
-// call goroutines to shut down.
+// close cancels all requests except for inflightReq, cancels the context of
+// every running call and waits for the call goroutines to shut down.
+//
+// The calls are cancelled before the wait: a method that blocks until its
+// context ends would otherwise never return, and close, the connection's
+// dispatch loop and the server's ServeCodec would wait on it forever.
 func (h *handler) close(err error, inflightReq *requestOp) {
 	h.cancelAllRequests(err, inflightReq)
-	h.callWG.Wait()
 	h.cancelRoot()
+	h.callWG.Wait()
 	h.cancelServerSubscriptions(err)
+}
+
+// closingWriter closes the connection when a write to it fails. A failed write
+// may have left a partial message on the stream, and a peer that stopped reading
+// never receives the response: closing ends the session on both sides instead of
+// leaving the peer waiting for a reply that cannot arrive.
+type closingWriter struct {
+	jsonWriter
+	log log.Logger
+}
+
+func (w closingWriter) writeJSON(ctx context.Context, msg interface{}, isError bool) error {
+	err := w.jsonWriter.writeJSON(ctx, msg, isError)
+	if err != nil {
+		if c, ok := w.jsonWriter.(interface{ close() }); ok {
+			w.log.Debug("Closing RPC connection after a failed write", "err", err)
+			c.close()
+		}
+	}
+	return err
 }
 
 // addRequestOp registers a request operation.
